@@ -2,8 +2,6 @@ class SimpleMarkovRetexture {
   constructor(outputCanvasEl) {
     this.outputCanvasEl = outputCanvasEl;
     this.outputCtx = outputCanvasEl.getContext('2d');
-    this.originalWidth = 0;
-    this.originalHeight = 0;
   }
 
   generate(originalImageData, neighborCount, targetWidth, targetHeight) {
@@ -31,18 +29,11 @@ class SimpleMarkovRetexture {
       this.targetWidth,
       this.targetHeight);
     this.outputCtx.putImageData(rgba, 0, 0);
-
-    /*tileCtx.putImageData(rgba, 0, newHeight);
-    tileCtx.putImageData(rgba, 0, 2 * newHeight);
-    tileCtx.putImageData(rgba, newWidth, newHeight);
-    tileCtx.putImageData(rgba, newWidth, 2 * newHeight);*/
-
-    console.log('done');
   }
 
   generateRows_() {
-    for (var i = 0; i < this.targetHeight; i++) {
-      for (var j = 0; j < this.targetWidth; j++) {
+    for (var i = 0; i < this.targetWidth; i++) {
+      for (var j = 0; j < this.targetHeight; j++) {
         this.replaceNoise_(i, j);
       }
       console.log('generated row ' + i);
@@ -63,7 +54,7 @@ class SimpleMarkovRetexture {
   replaceNoise_(x, y) {
     var match = this.findMatch_(x, y);
     var pixels = this.extractOriginalPixels_(match[0], match[1]);
-    var start = x * 4 + y * this.sourceRowArrayWidth;
+    var start = x * 4 + y * this.targetRowArrayWidth;
     this.targetArray[start] = pixels[0];
     this.targetArray[start+1] = pixels[1];
     this.targetArray[start+2] = pixels[2];
@@ -144,7 +135,7 @@ class SimpleMarkovRetexture {
 
   /** Returns the four RGBA values that represent the pixel at X, Y. */
   extractOriginalPixels_(x, y) {
-    return this.originalPixelArray[x + y * originalWidth];
+    return this.originalPixelArray[x + y * this.sourceWidth];
   }
 
   /**
