@@ -6,6 +6,7 @@
 				border: 1px solid #ddd;
 			}
 		</style>
+    <script src="simple-markov-retexture.js"></script>
 	</head>
 	<body>
 		<canvas id="canvas" width="256" height="256"></canvas>
@@ -20,35 +21,37 @@
 	</body>
   <script>
     var ctx = document.getElementById('canvas').getContext('2d');
-    var oCtx = document.getElementById('outcanvas').getContext('2d');
-    var tileCtx = document.getElementById('sampletile').getContext('2d');
-    var originalWidth = 0;
-    var originalHeight = 0;
     var newWidth = 50;
     var newHeight = 50;
-    var newRowPixelValWidth = newWidth * 4;
-    var originalRowPixelValWidth = 0;
-    var lookupSize = 6;
+    var lookupSize = 4;
 
-    var originalArray = [];
-    var originalPixelArray = [];
-    var newArray = [];
-    function draw() {
+    function generate() {
       var img = new Image();
       img.onload = function() {
         originalWidth = img.width;
         originalHeight = img.height;
         originalRowPixelValWidth = originalWidth * 4;
         ctx.drawImage(img, 0, 0);
-        originalArray = ctx.getImageData(
-          0, 0, originalWidth, originalHeight).data;
-          for (var i = 0; i < originalArray.length; i += 4) {
-            originalPixelArray.push(originalArray.slice(i, i+4));
-          }
-          postLoadGenerate();
+        var retexture = new SimpleMarkovRetexture(
+          document.getElementById('outcanvas'));
+        retexture.generate(
+          ctx.getImageData(0, 0, originalWidth, originalHeight),
+          lookupSize,
+          50,
+          50);
+
+          var newImageData = new ImageData(
+            new Uint8ClampedArray(retexture.targetArray),
+            retexture.targetWidth,
+            retexture.targetHeight);
+
+          var tileCtx = document.getElementById('sampletile').getContext('2d');
+          tileCtx.putImageData(newImageData, 0, 50);
+          tileCtx.putImageData(newImageData, 0, 2 * 50);
+          tileCtx.putImageData(newImageData, 50, 50);
+          tileCtx.putImageData(newImageData, 50, 2 * 50);
       };
       img.src = document.getElementById('imageUrl').value;
-      drawNoise();
     }
 
     function toPng() {
@@ -56,123 +59,6 @@
       var imgDom = document.createElement('img');
       imgDom.src = canvas.toDataURL('image/png');
       document.body.appendChild(imgDom);
-    }
-
-    function generate() {
-      draw();
-    }
-    function postLoadGenerate() {
-        generateRow(newHeight);
-        var rgba = new ImageData(new Uint8ClampedArray(newArray), newWidth, newHeight);
-        oCtx.putImageData(rgba, 0, 0);
-
-        tileCtx.putImageData(rgba, 0, newHeight);
-        tileCtx.putImageData(rgba, 0, 2 * newHeight);
-        tileCtx.putImageData(rgba, newWidth, newHeight);
-        tileCtx.putImageData(rgba, newWidth, 2 * newHeight);
-
-      console.log('done');
-    }
-
-    function generateRow(cap) {
-      for (j = 0; j < cap; j++) {
-        for (var i = 0; i < newWidth; i++) {
-          replace(i, j);
-        }
-        console.log('row ' + j);
-      }
-    }
-
-    function drawNoise() {
-      var array = new Array(newWidth * newHeight * 4);
-      for (var i = 0; i < newWidth * newHeight * 4; i++) {
-        if (i % 4 == 3) {
-          array[i] = 255;
-        } else {
-          array[i] = Math.floor(Math.random() * 256);
-        }
-      }
-      newArray = array;
-      var rgba = new ImageData(new Uint8ClampedArray(array), newWidth, newHeight);
-      oCtx.putImageData(rgba, 0, 0);
-    }
-
-    function replace(x, y) {
-      var match = findMatch(x, y);
-      var pixels = extractOriginalPixels(match[0], match[1]);
-      var start = x * 4 + y * newRowPixelValWidth;
-      newArray[start] = pixels[0];
-      newArray[start+1] = pixels[1];
-      newArray[start+2] = pixels[2];
-    }
-
-    function findMatch(x, y) {
-      min = 100000000;
-      result = [0, 0];
-      for (var i = 0; i < originalWidth; i++) {
-        for (var j = 0; j < originalHeight; j++) {
-          var calc = compareNeighbors(x, y, i, j);
-          if (calc < min) {
-            min = calc;
-            result = [i, j];
-          }
-        }
-      }
-      return result;
-    }
-
-    /** Returns total cost difference of pixels. */
-    function compareNeighbors(x, y, x1, y1) {
-      var originalNeighbors = getNeighbors(
-        x1, y1, lookupSize, lookupSize, originalWidth, originalHeight, 0);
-      var newNeighbors = getNeighbors(
-        x, y, lookupSize, lookupSize, newWidth, newHeight, 0);
-      var total = 0;
-      for (var i = 0; i < originalNeighbors.length; i++) {
-        var originalPixel = extractOriginalPixels(
-          originalNeighbors[i][0],
-          originalNeighbors[i][1]);
-        var newPixel = extractPixels(
-          newArray,
-          newNeighbors[i][0],
-          newNeighbors[i][1],
-          newRowPixelValWidth);
-        var delta = comparePixel(originalPixel, newPixel);
-        total += delta;
-      }
-      return total;
-    }
-
-    function getNeighbors(x, y, xSize, ySize, w, h, xOffset) {
-      xOffset = xOffset || 0;
-      var results = [];
-      for (var i = x - xSize; i <= x + xSize; i++) {
-        for (var j = y - ySize; j < y; j++) {
-          if (i == x && j == y) {
-            break;
-          }
-          var xAt = i < 0 ? w + i : i;
-          var xAt = i >= w ? i - w : xAt;
-          var yAt = j < 0 ? h + j : j;
-          results.push([xAt + xOffset, yAt]);
-        }
-      }
-      return results;
-    }
-
-    function extractPixels(array, x, y, pixelValWidth) {
-      var start = x * 4 + y * pixelValWidth;
-      return array.slice(start, start+4);
-    }
-
-    function extractOriginalPixels(x, y) {
-      return originalPixelArray[x + y * originalWidth];
-    }
-
-    function comparePixel(pixelA, pixelB) {
-      return Math.pow(pixelA[0]-pixelB[0], 2) +
-        Math.pow(pixelA[1]-pixelB[1], 2) +
-        Math.pow(pixelA[2]-pixelB[2], 2);
     }
   </script>
 </html>
