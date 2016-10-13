@@ -28,15 +28,12 @@
     function generate() {
       var img = new Image();
       img.onload = function() {
-        originalWidth = img.width;
-        originalHeight = img.height;
-        originalRowPixelValWidth = originalWidth * 4;
         ctx.drawImage(img, 0, 0);
         var retexture = new SimpleMarkovRetexture(
           document.getElementById('outcanvas'));
         retexture.generate(
-          ctx.getImageData(0, 0, originalWidth, originalHeight),
-          lookupSize,
+          ctx.getImageData(0, 0, img.width, img.height),
+          6,
           50,
           50);
 
